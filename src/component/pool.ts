@@ -101,7 +101,19 @@ export const onComplete = internalMutation({
       });
       return;
     }
-    const { generationNumber } = args.context;
+    const workflow = await getWorkflow(ctx, workflowId, null);
+    if (
+      journalEntry.step.functionType === "pause" &&
+      args.result.kind === "success"
+    ) {
+      console.event("stepPaused", {
+        workflowId,
+        workflowName: workflow.name,
+        stepName: journalEntry.step.name,
+        stepNumber: journalEntry.stepNumber,
+      });
+      return;
+    }
     journalEntry.step.inProgress = false;
     journalEntry.step.completedAt = Date.now();
     switch (args.result.kind) {
@@ -126,7 +138,6 @@ export const onComplete = internalMutation({
     await ctx.db.replace(journalEntry._id, journalEntry);
     console.debug(`Completed execution of ${stepId}`, journalEntry);
 
-    const workflow = await getWorkflow(ctx, workflowId, null);
     console.event("stepCompleted", {
       workflowId,
       workflowName: workflow.name,
@@ -143,6 +154,7 @@ export const onComplete = internalMutation({
       }
       return;
     }
+    const { generationNumber } = args.context;
     if (workflow.generationNumber !== generationNumber) {
       console.error(
         `Workflow: ${workflowId} already has generation number ${workflow.generationNumber} when completing ${stepId}`,
